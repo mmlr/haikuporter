@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from __future__ import absolute_import
+
 #
 # Copyright 2007-2011 Brecht Machiels
 # Copyright 2009-2010 Chris Roberts
@@ -14,6 +14,7 @@ from __future__ import absolute_import
 # -- Modules ------------------------------------------------------------------
 
 import codecs
+from functools import cmp_to_key
 import json
 import os
 import re
@@ -60,7 +61,6 @@ from .Utils import (
 # -- Modules preloaded for chroot ---------------------------------------------
 # These modules need to be preloaded in order to avoid problems with python
 # trying to dynamically load them inside a chroot environment
-from encodings import string_escape
 
 
 # -- Scoped resource for chroot environments ----------------------------------
@@ -75,7 +75,7 @@ class ChrootSetup(object):
 		shellEnv = filteredEnvironment()
 		shellEnv.update(self.envVars)
 		check_output(['bash', '-c', setupChrootScript], env=shellEnv,
-			cwd=self.path)
+			cwd=self.path).decode('utf-8')
 		return self
 
 	def __exit__(self, ignoredType, value, traceback):
@@ -85,7 +85,7 @@ class ChrootSetup(object):
 		if self.buildOk:
 			shellEnv['buildOk'] = '1'
 		check_output(['bash', '-c', cleanupChrootScript], env=shellEnv,
-			cwd=self.path)
+			cwd=self.path).decode('utf-8')
 
 
 
@@ -238,7 +238,7 @@ class Port(object):
 
 		## REFACTOR this into a separate method
 		if not os.path.exists(self.recipeFilePath):
-			sysExit(self.name + u' version ' + self.version + u' not found.')
+			sysExit(self.name + ' version ' + self.version + ' not found.')
 
 		# copy the recipe file and prepare it for use
 		if not os.path.exists(os.path.dirname(self.preparedRecipeFile)):
@@ -263,7 +263,7 @@ class Port(object):
 		extensions = recipeConfig.extensions
 
 		if '' not in extensions:
-			sysExit(u'No base package defined in (in %s)' % self.recipeFilePath)
+			sysExit('No base package defined in (in %s)' % self.recipeFilePath)
 
 		recipeKeysByExtension = {}
 
@@ -280,7 +280,7 @@ class Port(object):
 			recipeKeys = {}
 
 			# check whether all required values are present
-			for baseKey in recipeAttributes.keys():
+			for baseKey in list(recipeAttributes.keys()):
 				if extension:
 					key = baseKey + '_' + extension
 					# inherit any missing attribute from the respective base
@@ -305,7 +305,7 @@ class Port(object):
 				if key not in entries:
 					# complain about missing required values
 					if recipeAttributes[baseKey]['required']:
-						sysExit(u"No %s found (in %s)"
+						sysExit("No %s found (in %s)"
 								% (key, self.recipeFilePath))
 
 					# set default value, as no other value has been provided
@@ -322,7 +322,7 @@ class Port(object):
 				elif baseKey == 'PATCHES':
 					# collect all referenced patches into a single list
 					if key in entries and entries[key]:
-						for index in entries[key].keys():
+						for index in list(entries[key].keys()):
 							allPatches += entries[key][index]
 
 				# store extension-specific value under base key
@@ -347,8 +347,8 @@ class Port(object):
 					if (os.path.exists(self.patchesDir + '/' + patchFileName)
 						and not patchFileName in allPatches):
 						if showWarnings:
-							warn(u'Patch file %s is not referenced in '
-								 u'PATCHES, so it will not be used'
+							warn('Patch file %s is not referenced in '
+								 'PATCHES, so it will not be used'
 								 % patchFileName)
 
 		return recipeKeysByExtension, recipeConfig.definedPhases
@@ -358,34 +358,34 @@ class Port(object):
 		# The summary must be a single line of text, preferably not
 		# exceeding 70 characters in length
 		if key not in entries or not entries[key]:
-			sysExit(u'No %s found (in %s)'
+			sysExit('No %s found (in %s)'
 				% (key, self.recipeFilePath))
 		if '\n' in entries[key]:
-			sysExit(u'%s must be a single line of text (%s).'
+			sysExit('%s must be a single line of text (%s).'
 					% (key, self.recipeFilePath))
 		if entries[key].lower().startswith(self.name):
-			sysExit(u'%s cannot start with the name of the port (%s).'
+			sysExit('%s cannot start with the name of the port (%s).'
 					% (key, self.recipeFilePath))
 		if entries[key][0].islower():
-			sysExit(u'%s must start with a capital letter (%s).'
+			sysExit('%s must start with a capital letter (%s).'
 					% (key, self.recipeFilePath))
 		if entries[key].endswith('.'):
-			sysExit(u'%s cannot end in "." (%s).'
+			sysExit('%s cannot end in "." (%s).'
 					% (key, self.recipeFilePath))
 		if entries[key].count(' ') < 2:
-			sysExit(u'%s must have at least 3 words (%s).'
+			sysExit('%s must have at least 3 words (%s).'
 					% (key, self.recipeFilePath))
 		if len(entries[key]) > 80:
-			sysExit(u'%s exceeds 80 chars (in %s)'
+			sysExit('%s exceeds 80 chars (in %s)'
 				 % (key, self.recipeFilePath))
 
 	def _validateDESCRIPTION(self, key, entries, showWarnings):
 		"""Validates the 'DESCRIPTION' of the port."""
 		if key not in entries or not entries[key]:
-			sysExit(u'No %s found (in %s)'
+			sysExit('No %s found (in %s)'
 				% (key, self.recipeFilePath))
 		if 'SUMMARY' in entries and ''.join(entries[key]) == entries['SUMMARY']:
-			sysExit(u'%s cannot be the same as SUMMARY (in %s)'
+			sysExit('%s cannot be the same as SUMMARY (in %s)'
 				% (key, self.recipeFilePath))
 
 	def _validateLICENSE(self, key, entries, showWarnings):
@@ -405,46 +405,46 @@ class Port(object):
 						fileList.append(filename)
 				if item not in fileList:
 					haikuLicenseList.sort()
-					sysExit(u'No match found for license ' + item
-							+ u'\nValid license filenames included '
-							+ u'with Haiku are:\n'
-							+ u', '.join(haikuLicenseList)
-							+ u'\n(in %s)' % (self.recipeFilePath))
+					sysExit('No match found for license ' + item
+							+ '\nValid license filenames included '
+							+ 'with Haiku are:\n'
+							+ ', '.join(haikuLicenseList)
+							+ '\n(in %s)' % (self.recipeFilePath))
 		else:
-			sysExit(u'No %s found (in %s)' % (key, self.recipeFilePath))
+			sysExit('No %s found (in %s)' % (key, self.recipeFilePath))
 
 	def _validateCOPYRIGHT(self, key, entries, showWarnings):
 		"""Validates the 'COPYRIGHT' of the port."""
 		# Collect all referenced patches into a single list
 		fullCopyright = '\n'.join(entries[key])
 		if key not in entries or not entries[key]:
-			sysExit(u'No %s found (in %s)'
+			sysExit('No %s found (in %s)'
 				% (key, self.recipeFilePath))
 		elif "@" in fullCopyright:
-			sysExit(u'%s must not contain e-mail addresses (in %s)'
+			sysExit('%s must not contain e-mail addresses (in %s)'
 				% (key, self.recipeFilePath))
 		else:
 			lowerc = fullCopyright.lower()
-			if u"copyright" in lowerc or u"(c)" in lowerc or u"©" in lowerc:
-				sysExit(u'%s must not contain "COPYRIGHT", "(C)", or © (in %s)'
+			if "copyright" in lowerc or "(c)" in lowerc or "©" in lowerc:
+				sysExit('%s must not contain "COPYRIGHT", "(C)", or © (in %s)'
 					% (key, self.recipeFilePath))
 
 	def printDescription(self):
 		"""Show port description"""
 
 		self.parseRecipeFileIfNeeded()
-		print '*' * 80
-		print 'VERSION: %s' % self.versionedName
-		print 'REVISION: %s' % self.revision
-		print 'HOMEPAGE: %s' % self.recipeKeys['HOMEPAGE']
+		print('*' * 80)
+		print('VERSION: %s' % self.versionedName)
+		print('REVISION: %s' % self.revision)
+		print('HOMEPAGE: %s' % self.recipeKeys['HOMEPAGE'])
 		for package in self.allPackages:
-			print '-' * 80
-			print 'PACKAGE: %s' % package.versionedName
-			print 'SUMMARY: %s' % package.recipeKeys['SUMMARY']
+			print('-' * 80)
+			print('PACKAGE: %s' % package.versionedName)
+			print('SUMMARY: %s' % package.recipeKeys['SUMMARY'])
 			print('STATUS: %s'
 				  % package.getStatusOnArchitecture(self.targetArchitecture))
-			print 'ARCHITECTURE: %s' % package.architecture
-		print '*' * 80
+			print('ARCHITECTURE: %s' % package.architecture)
+		print('*' * 80)
 
 	@property
 	def statusOnTargetArchitecture(self):
@@ -575,7 +575,7 @@ class Port(object):
 		except SystemExit:
 			return
 
-		warn(u"port %s doesn't seem to be required by %s"
+		warn("port %s doesn't seem to be required by %s"
 			 % (requiredPort.versionedName, self.versionedName))
 
 	def getDependencyInfoFiles(self, repositoryPath):
@@ -616,7 +616,7 @@ class Port(object):
 		"""Clean the working directory"""
 
 		if os.path.exists(self.workDir):
-			print 'Cleaning work directory of %s ...' % self.versionedName
+			print('Cleaning work directory of %s ...' % self.versionedName)
 			shutil.rmtree(self.workDir)
 
 	def downloadSource(self):
@@ -777,7 +777,7 @@ class Port(object):
 					chrootSetup.buildOk = True
 
 				def failureFunction():
-					sysExit(u'Build has failed - stopping.')
+					sysExit('Build has failed - stopping.')
 
 				return {
 					'task': taskFunction,
@@ -829,8 +829,8 @@ class Port(object):
 							or Configuration.isCrossBuildRepository()
 							or getOption('createSourcePackagesForBootstrap')
 							or getOption('createSourcePackages')):
-						warn(u'not grabbing ' + package.hpkgName
-							 + u', as it has not been built in a chroot.')
+						warn('not grabbing ' + package.hpkgName
+							 + ', as it has not been built in a chroot.')
 						continue
 					targetPackageFile \
 						= hpkgStoragePath + '/' + package.hpkgName
@@ -846,7 +846,7 @@ class Port(object):
 		"""Test the port"""
 
 		if not buildPlatform.isHaiku:
-			sysExit(u"Sorry, can't execute a test unless running on Haiku")
+			sysExit("Sorry, can't execute a test unless running on Haiku")
 
 		self.parseRecipeFileIfNeeded()
 
@@ -875,7 +875,7 @@ class Port(object):
 				self._executeTest()
 
 			def failureFunction():
-				sysExit(u'Test has failed - stopping.')
+				sysExit('Test has failed - stopping.')
 
 			return {
 				'task': taskFunction,
@@ -943,7 +943,7 @@ class Port(object):
 		self.recipeKeysByExtension, self.definedPhases \
 			= self._validateOrLoadFromCache(showWarnings)
 		self.recipeKeys = {}
-		for entries in self.recipeKeysByExtension.values():
+		for entries in list(self.recipeKeysByExtension.values()):
 			self.recipeKeys.update(entries)
 
 		# initialize variables that depend on the recipe revision
@@ -957,7 +957,8 @@ class Port(object):
 		basedOnSourcePackage = False
 		## REFACTOR it looks like this method should be setup and dispatch
 
-		for index in sorted(keys['SOURCE_URI'].keys(), cmp=naturalCompare):
+		for index in sorted(list(keys['SOURCE_URI'].keys()),
+				key=cmp_to_key(naturalCompare)):
 			source = Source(self, index, keys['SOURCE_URI'][index],
 							keys['SOURCE_FILENAME'].get(index, None),
 							keys['CHECKSUM_SHA256'].get(index, None),
@@ -1143,7 +1144,7 @@ class Port(object):
 			'sysconfDir': portPackageLinksDir + '/.settings',
 		}
 
-		for name, value in relativeConfigureDirs.iteritems():
+		for name, value in relativeConfigureDirs.items():
 			relativeName = 'relative' + name[0].upper() + name[1:]
 			self.shellVariables[relativeName] = value
 			configureDirs[name] = prefix + '/' + value
@@ -1153,19 +1154,19 @@ class Port(object):
 		# add one more variable containing all the dir args for configure:
 		self.shellVariables['configureDirArgs'] \
 			= ' '.join('--%s=%s' % (k.lower(), v)
-					   for k, v in configureDirs.iteritems())
+					   for k, v in configureDirs.items())
 
 		# add one more variable containing all the dir args for CMake:
 		cmakeDirArgs = {}
-		for k, v in configureDirs.iteritems():
+		for k, v in configureDirs.items():
 			cmakeDirArgs[k.upper()] = v
 		self.shellVariables['cmakeDirArgs'] \
 			= ' '.join('-DCMAKE_INSTALL_%s=%s' % (k, v)
-					   for k, v in cmakeDirArgs.iteritems())
+					   for k, v in cmakeDirArgs.items())
 
 		# add another one with the list of possible variables
 		self.shellVariables['configureDirVariables'] \
-			= ' '.join(configureDirs.iterkeys())
+			= ' '.join(iter(configureDirs.keys()))
 
 		# Add variables for other standard directories. Consequently, we should
 		# use finddir to get them (also for the configure variables above), but
@@ -1184,7 +1185,7 @@ class Port(object):
 			'settingsDir': 'settings',
 		}
 
-		for name, value in relativeOtherDirs.iteritems():
+		for name, value in relativeOtherDirs.items():
 			relativeName = 'relative' + name[0].upper() + name[1:]
 			self.shellVariables[relativeName] = value
 			self.shellVariables[name] = prefix + '/' + value
@@ -1233,19 +1234,19 @@ class Port(object):
 				if childStatus != 0:
 					if 'failure' in chrootFunctions:
 						chrootFunctions['failure']()
-					sysExit(u'chroot-task failed')
+					sysExit('chroot-task failed')
 				if 'success' in chrootFunctions:
 					chrootFunctions['success']()
 		except KeyboardInterrupt:
 			if pid > 0:
-				print '*** interrupted - stopping child process'
+				print('*** interrupted - stopping child process')
 				try:
 					os.kill(pid, signal.SIGINT)
 					os.waitpid(pid, 0)
 				except:
 					pass
-				print '*** child stopped'
-				sysExit(u'Interrupted.')
+				print('*** child stopped')
+				sysExit('Interrupted.')
 
 	def _getPackagesNeededForScriptlets(self, packagesPath):
 		"""Determine the set of packages that must be linked into
@@ -1467,14 +1468,14 @@ class Port(object):
 				if package.type != PackageType.SOURCE:
 					package.activateBuildPackage()
 
-		print 'Testing ...'
+		print('Testing ...')
 		self._doRecipeAction(Phase.TEST, self.sourceDir)
 
 	def _doRecipeAction(self, action, targetDir):
 		"""Run the specified action, as defined in the recipe file"""
 
 		if getOption('enterChroot'):
-			print "opening chroot shell for " + action
+			print("opening chroot shell for " + action)
 			ps1 = action + '-chroot:' + os.environ['PS1']
 			self._openShell([], self.sourceDir, {'PS1': ps1})
 			return
@@ -1525,7 +1526,7 @@ class Port(object):
 		else:
 			process = Popen(args, cwd=targetDir, env=shellEnv, stdout=PIPE, stderr=STDOUT)
 			for line in iter(process.stdout.readline, b''):
-				self.logger.info(line[:-1])
+				self.logger.info(line.decode('utf-8')[:-1])
 			process.stdout.close()
 			code = process.wait()
 			if code:
@@ -1540,9 +1541,9 @@ class Port(object):
 													 requiresTypes,
 													 repositories, **kwargs)
 		except (CalledProcessError, LookupError):
-			sysExit((u'unable to resolve %s for %s\n'
-					 + u'\tdependency-infos:\n\t\t%s\n'
-					 + u'\trepositories:\n\t\t%s\n')
+			sysExit(('unable to resolve %s for %s\n'
+					 + '\tdependency-infos:\n\t\t%s\n'
+					 + '\trepositories:\n\t\t%s\n')
 					% (description, self.versionedName,
 					   '\n\t\t'.join(dependencyInfoFiles),
 					   repositories))
@@ -1553,7 +1554,7 @@ class Port(object):
 		sourceKeys = {}
 		baseKeys = self.recipeKeysByExtension['']
 		recipeAttributes = getRecipeAttributes()
-		for key in baseKeys.keys():
+		for key in list(baseKeys.keys()):
 			if recipeAttributes[key]['extendable'] != Extendable.NO:
 				sourceKeys[key] = recipeAttributes[key]['default']
 			else:

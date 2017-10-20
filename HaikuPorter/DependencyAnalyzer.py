@@ -132,20 +132,20 @@ class DependencyAnalyzer(object):
 		if not self.portNodes:
 			self._doInitialDependencyResolution()
 
-		print 'Required system packages:'
+		print('Required system packages:')
 		for packageNode in sorted(self.systemPackageNodes,
 				key=lambda packageNode: packageNode.name):
-			print '	 %s' % packageNode.name
+			print('	 %s' % packageNode.name)
 
-		print 'Ports required by haikuporter:'
+		print('Ports required by haikuporter:')
 		for packageNode in sorted(self.haikuporterRequires,
 				key=lambda packageNode: packageNode.name):
-			print '	 %s' % packageNode.portNode.name
+			print('	 %s' % packageNode.portNode.name)
 
-		print 'Ports depending cyclically on each other:'
+		print('Ports depending cyclically on each other:')
 		for node in sorted(sorted(self.cyclicNodes, key=lambda node: node.name),
 				key=lambda node: node.outdegree):
-			print '	 %s (out-degree %d)' % (node.name, node.outdegree)
+			print('	 %s (out-degree %d)' % (node.name, node.outdegree))
 
 	def getBuildOrderForBootstrap(self):
 		if not self.portNodes:
@@ -161,15 +161,14 @@ class DependencyAnalyzer(object):
 		while nodes:
 			lastDoneCount = len(done)
 			for node in sorted(list(nodes), key=lambda node: node.name):
-				print '# checking if %s is buildable ...' % node.name
+				print('# checking if %s is buildable ...' % node.name)
 				if node.isBuildable(self.repository.path, doneRepositoryPath):
 					done.append(node.name)
 					nodes.remove(node)
 					node.markAsBuilt(doneRepositoryPath)
 			if lastDoneCount == len(done):
-				sysExit(u"None of these cyclic dependencies can be built:\n\t"
-						+ "\n\t".join(sorted(map(lambda node: node.name,
-												 nodes))))
+				sysExit("None of these cyclic dependencies can be built:\n\t"
+						+ "\n\t".join(sorted([node.name for node in nodes])))
 
 		shutil.rmtree(doneRepositoryPath)
 
@@ -182,7 +181,7 @@ class DependencyAnalyzer(object):
 		# depend on. A package automatically depends on the port it belongs to.
 		# Furthermore it depends on the packages its requires specify. Build
 		# requires and build prerequires are dependencies for a port.
-		print 'Resolving dependencies ...'
+		print('Resolving dependencies ...')
 
 		self._collectDependencyInfos(self.repository.path)
 		self._collectSystemPackages()
@@ -191,7 +190,7 @@ class DependencyAnalyzer(object):
 		for portName in sorted(self.repository.portVersionsByName.keys()):
 			activePortVersion = self.repository.getActiveVersionOf(portName)
 			if not activePortVersion:
-				print 'Warning: Skipping ' + portName + ', no version active'
+				print('Warning: Skipping ' + portName + ', no version active')
 				continue
 
 			allActivePorts.append(portName + '-' + activePortVersion)
@@ -217,7 +216,7 @@ class DependencyAnalyzer(object):
 		remainingPortNodes = set()
 		nonSystemPackageNodes = set()
 
-		for packageNode in self.packageNodes.itervalues():
+		for packageNode in self.packageNodes.values():
 			if packageNode.isSystemPackage:
 				self.systemPackageNodes.add(packageNode)
 			else:
@@ -298,7 +297,7 @@ class DependencyAnalyzer(object):
 		for node in nodes:
 			if node.outdegree == 0:
 				outdegreeZeroStack.append(node)
-				print '[%s] has out-degree 0' % node.name
+				print('[%s] has out-degree 0' % node.name)
 
 		# remove the acyclic part of the graph that depends on nothing else
 		while outdegreeZeroStack:
@@ -394,5 +393,5 @@ class DependencyAnalyzer(object):
 		self._getPortNode(portID)
 
 		if not packageID in self.packageNodes:
-			sysExit(u'package "%s" doesn\'t seem to exist' % packageID)
+			sysExit('package "%s" doesn\'t seem to exist' % packageID)
 		return self.packageNodes[packageID]

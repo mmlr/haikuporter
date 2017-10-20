@@ -310,8 +310,8 @@ def parseOptions():
 		setattr(__Options__, 'noSourcePackages', True)
 	elif not isCommandAvailable('git'):
 		if not getOption('doBootstrap'):
-			warn(u"deactivating creation of source packages as 'git' is not "
-				 u"available")
+			warn("deactivating creation of source packages as 'git' is not "
+				 "available")
 		setattr(__Options__, 'noSourcePackages', True)
 
 	return (__Options__, args)

@@ -1,4 +1,4 @@
-from __future__ import absolute_import
+
 # -*- coding: utf-8 -*-
 #
 # Copyright 2013 Oliver Tappe
@@ -45,7 +45,7 @@ class ConfigParser(object):
 		shellEnv['recipePhases'] = ' '.join(Phase.getAllowedValues())
 
 		# execute the config file via the shell ....
-		supportedKeysString = '|'.join(attributes.keys())
+		supportedKeysString = '|'.join(list(attributes.keys()))
 		shellVariables = shellVariables.copy()
 		shellVariables['supportedKeysPattern'] = supportedKeysString
 		shellVariables['fileToParse'] = filename
@@ -53,9 +53,10 @@ class ConfigParser(object):
 		wrapperScript = (getShellVariableSetters(shellVariables)
 						 + configFileEvaluatorScript)
 		try:
-			output = check_output(['bash', '-c', wrapperScript], env=shellEnv)
+			output = check_output(['bash', '-c', wrapperScript], env=shellEnv) \
+				.decode('utf-8')
 		except (OSError, CalledProcessError):
-			sysExit(u"Can't evaluate config file: " + filename)
+			sysExit("Can't evaluate config file: " + filename)
 
 		# ... and collect the resulting configurations (one per line)
 
@@ -67,9 +68,9 @@ class ConfigParser(object):
 			## REFACTOR into a testable method that can parse a single line
 			key, separator, valueString = line.partition('=')
 			if not separator:
-				sysExit(u'evaluating file %s produced illegal '
-						u'key-values line:\n	 %s\nexpected "<key>=<value>"\n'
-						u'output of configuration script was: %s\n'
+				sysExit('evaluating file %s produced illegal '
+						'key-values line:\n	 %s\nexpected "<key>=<value>"\n'
+						'output of configuration script was: %s\n'
 						% (filename, line, output))
 
 			# some keys may have a package-specific extension, check:
@@ -96,7 +97,7 @@ class ConfigParser(object):
 							if len(subKeys) == 1 and subKeys[0].isdigit():
 								index = subKeys[0]
 								break
-						warn(u'Ignoring key %s in file %s' % (key, filename))
+						warn('Ignoring key %s in file %s' % (key, filename))
 						continue
 				else:
 					# might be a <PHASE>_DEFINED
@@ -109,7 +110,7 @@ class ConfigParser(object):
 
 					if not isPhaseKey:
 						# skip unsupported key, just in case
-						warn(u'Key %s in file %s is unsupported, ignoring it'
+						warn('Key %s in file %s is unsupported, ignoring it'
 							 % (key, filename))
 					continue
 
@@ -119,7 +120,7 @@ class ConfigParser(object):
 
 			entries = self.entriesByExtension[extension]
 
-			valueString = valueString.replace(r'\n', '\n').decode('utf-8')
+			valueString = valueString.replace(r'\n', '\n')
 			# replace quoted newlines by real newlines
 
 			if attributes[baseKey]['indexable']:
@@ -128,22 +129,22 @@ class ConfigParser(object):
 
 			## REFACTOR into one method per if/elif branch
 			attrType = attributes[baseKey]['type']
-			if attrType == types.StringType:
+			if attrType == bytes:
 				if attributes[baseKey]['indexable']:
 					entries[baseKey][index] = valueString
 				else:
 					entries[key] = valueString
-			elif attrType == types.IntType:
+			elif attrType == int:
 				try:
 					if attributes[baseKey]['indexable']:
 						entries[baseKey][index] = int(valueString)
 					else:
 						entries[key] = int(valueString)
 				except ValueError:
-					sysExit(u'evaluating file %s produced illegal value '
-							u'"%s" for key %s, expected an <integer> value'
+					sysExit('evaluating file %s produced illegal value '
+							'"%s" for key %s, expected an <integer> value'
 							% (filename, valueString, key))
-			elif attrType in [types.ListType, ProvidesList, RequiresList]:
+			elif attrType in [list, ProvidesList, RequiresList]:
 				values = [v.strip() for v in valueString.splitlines()]
 				values = [v for v in values if len(v) > 0]
 				# explicitly protect against '-' in names of provides or
@@ -152,10 +153,10 @@ class ConfigParser(object):
 					values = [v.lower() for v in values]
 					for value in values:
 						if '-' in value.split()[0]:
-							sysExit(u'evaluating file %s produced illegal value '
-									u'"%s" for key %s\n'
-									u'dashes are not allowed in provides- or '
-									u'requires declarations'
+							sysExit('evaluating file %s produced illegal value '
+									'"%s" for key %s\n'
+									'dashes are not allowed in provides- or '
+									'requires declarations'
 									% (filename, value, key))
 				if attributes[baseKey]['indexable']:
 					entries[baseKey][index] = values
@@ -172,8 +173,8 @@ class ConfigParser(object):
 				entries[key] = values
 			elif attrType == Phase:
 				if valueString.upper() not in Phase.getAllowedValues():
-					sysExit(u'evaluating file %s\nproduced illegal value "%s" '
-							u'for key %s\nexpected one of: %s'
+					sysExit('evaluating file %s\nproduced illegal value "%s" '
+							'for key %s\nexpected one of: %s'
 							% (filename, valueString, key,
 							   ','.join(Phase.getAllowedValues())))
 				entries[key] = valueString.upper()
@@ -183,8 +184,8 @@ class ConfigParser(object):
 				valueString = valueString.lower()
 				if valueString not in knownArchitectures:
 					architectures = ','.join(knownArchitectures)
-					sysExit(u'%s refers to unknown machine-architecture %s\n'
-							u'known machine-architectures: %s'
+					sysExit('%s refers to unknown machine-architecture %s\n'
+							'known machine-architectures: %s'
 							% (filename, valueString, architectures))
 				entries[key] = valueString
 			elif attrType == Architectures:
@@ -203,24 +204,24 @@ class ConfigParser(object):
 					knownArchitectures = Architectures.getAll()
 					if architecture not in knownArchitectures:
 						architectures = ','.join(knownArchitectures)
-						sysExit(u'%s refers to unknown architecture %s\n'
-								u'known architectures: %s'
+						sysExit('%s refers to unknown architecture %s\n'
+								'known architectures: %s'
 								% (filename, architecture, architectures))
 					entries[key][architecture] = status
 				if 'any' in entries[key] and len(entries[key]) > 1:
-					sysExit(u"%s specifies both 'any' and other architectures"
+					sysExit("%s specifies both 'any' and other architectures"
 							% (filename))
 				if 'source' in entries[key] and len(entries[key]) > 1:
-					sysExit(u"%s specifies both 'source' and other architectures"
+					sysExit("%s specifies both 'source' and other architectures"
 							% (filename))
 			elif attrType == YesNo:
 				valueString = valueString.lower()
 				if valueString not in YesNo.getAllowedValues():
-					sysExit(u"Value for %s should be 'yes' or 'no' in %s"
+					sysExit("Value for %s should be 'yes' or 'no' in %s"
 							% (key, filename))
 				entries[key] = YesNo.toBool(self, valueString)
 			else:
-				sysExit(u'type of key %s in file %s is unsupported'
+				sysExit('type of key %s in file %s is unsupported'
 						% (key, filename))
 				# for entries in self.entriesByExtension.values():
 				# for key in entries:
@@ -234,7 +235,7 @@ class ConfigParser(object):
 
 	@property
 	def extensions(self):
-		return self.entriesByExtension.keys()
+		return list(self.entriesByExtension.keys())
 
 
 	## REFACTOR - consider using simple functions for this
@@ -282,14 +283,14 @@ class ConfigParser(object):
 	@staticmethod
 	def configurationStringFromDict(config):
 		configurationString = ''
-		for key in config.keys():
+		for key in list(config.keys()):
 			configurationString += key + '="'
 
-			if type(config[key]) == types.ListType:
+			if type(config[key]) == list:
 				configurationString += reduce(
 					lambda result, item: result + ' ' + item, config[key],
 					'').strip()
-			elif type(config[key]) == types.BooleanType:
+			elif type(config[key]) == bool:
 				configurationString += 'yes' if config[key] else 'no'
 			else:
 				configurationString += str(config[key])
